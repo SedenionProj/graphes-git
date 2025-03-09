@@ -1,96 +1,70 @@
 import requests
-from bs4 import BeautifulSoup
-import subprocess
-import os
-import shutil
-import sys
 import ast
+import sys
 
-OUTPUT_DIR = "dossiers_git"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+# Remplacer par son token personnel
+TOKEN = "ghp_"
 
-def cloneGitRepo(repoPath):
-    repoName = os.path.basename(repoPath)   # nom et dossier du repo
-    try:
-        gitFolder = os.path.join(repoName, ".git")  # dossier .git
-        destFolder = os.path.join(OUTPUT_DIR, repoName) # dossier de destination
-        os.makedirs(destFolder) # on crée le dossier de destination
-        subprocess.run(["git", "clone", "https://github.com"+ repoPath], check=True)    # on fait un clonage du repo
-        shutil.move(gitFolder, destFolder)  # on déplace le dossier .git
-        shutil.rmtree(repoName) # on supprime le dossier repo
-    except Exception as e:
-        print(f"Erreur traitement {repoName}: {e}")
-        if os.path.exists(repoName):
-            shutil.rmtree(repoName)
-
-def getGithubReposPage(page, stars, number = 10) -> list:
+def getReposInfoByStarsPage(stars:int|tuple, page:int)->dict:
     '''
-    number: nombre de repos à récupérer avec 0 <= number <= 10
-    page: numéro de la page avec 0 <= page <= 100
+    page: numéro de la page avec 0 <= page <= 10
     stars: nombre d'étoiles
     '''
-    assert number <= 10, "Le nombre de repos par page doit être inférieur à 10"
+    assert page <=10, "La page courrante doit être inférieur à 10"
 
-
-    # url des repos github
     if isinstance(stars, tuple):
-        url = f"https://github.com/search?q=stars%3A{str(stars[0])}..{str(stars[1])}&type=Repositories&ref=advsearch&l=&l=&p={str(page+1)}"
-    elif isinstance(stars, int):
-        url = f"https://github.com/search?q=stars%3A{str(stars)}&type=Repositories&ref=advsearch&l=&l=&p={str(page+1)}"
+        stars_query = f"{stars[0]}..{stars[1]}"
+    else:
+        stars_query = str(stars)
 
-    # on recupère la page
-    response = requests.get(url)
-    if response.status_code != 200:
-        print(f"Erreur de chargement pour la page {page} des {stars} étoiles, code : {response.status_code}")
-        return
-    soup = BeautifulSoup(response.text, "html.parser")
+    url = f"https://api.github.com/search/repositories?q=stars:{stars_query}&per_page=100&page={page+1}"
 
-    # on recupere les liens des repos
-    githubRepos = []
-    i = 0
-    for a in soup.select("a.prc-Link-Link-85e08"):
+    headers = {
+        "Authorization": f"token {TOKEN}",
+    }
 
-        if(i//2 >= number): # on s'arrete au nombre de repos demandé
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        return response.json()
+    else:
+        print(f"Error {response.status_code}: {response.text}")
+        return {}
+
+def cloneGithubRepos(repos, nbRepos:int=100):
+    """
+    id : identifient unique
+    language : langage de programmation
+    full_name : usr/repo
+    clone_url
+
+    forks_count
+    open_issues_count
+    size : taille du répo en ko
+    stargazers_count : nombre d'étoiles
+
+    created_at     (format : 2014-12-24T17:49:19Z)
+    updated_at
+    pushed_at
+    """
+    for i, repo in enumerate(repos["items"]):
+
+        print(f"{i}: {repo['full_name']} ")
+
+
+        if i==nbRepos-1:
             break
 
-        link = a.get("href")    # on recupere le lien
-        if link[:7] in ["/topics", "https:/"]:   # on ignore les liens qui ne sont pas des repos
-            continue
-        i+=1
 
-        if i%2 == 0:    # on ignore autres liens contenant "/stargazers"
-            continue
+def cloneGithubReposByStars(nbReposPerStars:int, clone:bool, starsList:list[tuple|int]):
+    assert nbReposPerStars <=1000, "Impossible de récupérer plus de 1000 repos par fourchette d'étoiles"
+    for stars in starsList:
+        for page in range(nbReposPerStars//100):
+            repos = getReposInfoByStarsPage(stars, page)
+            cloneGithubRepos(repos)
+        repos = getReposInfoByStarsPage(stars, nbReposPerStars//100)
+        cloneGithubRepos(repos, nbReposPerStars%100)
 
-        githubRepos.append(link)
-
-    return githubRepos
-
-def cloneGithubReposByStars( stars:list[tuple|int], nbReposPerStars:int, clone:bool):
-    
-    assert nbReposPerStars <= 1000, "Le nombre de repos par étoile doit être inférieur à 1000"
-    
-    for star in stars:
-        L = []
-        for page in range(nbReposPerStars//10):
-            # on recupere les 10 premiers repos
-            listeRep = getGithubReposPage(page, star)   
-            if listeRep is not None:
-                L += listeRep
-        # on recupere les repos restants
-        listeRep = getGithubReposPage(nbReposPerStars//10, star, nbReposPerStars%10)  
-        if listeRep is not None:
-            L += listeRep
-        
-        if clone:
-            for rep in L:
-                cloneGitRepo(rep)
-        else:
-            print(L)
-
-'''
-todo: nb etoiles, fork, date de création, derniere utilisation, vérifier le graphes générée correspond bien au repo
-chercher autre type de graphes, comprendre .git
-''' 
 
 if __name__ == "__main__":
     if len(sys.argv) == 4:
@@ -99,7 +73,7 @@ if __name__ == "__main__":
         nb = int(sys.argv[1])
         clone = sys.argv[2].lower() == "true"
         print(lst, nb, clone)
-        cloneGithubReposByStars(lst, nb, clone)
+        cloneGithubReposByStars(nb, clone, lst)
     else:
-        print("utilisation : <nbReposPerStars> <clone> <nbStars>")
+        print("utilisation : <nbReposPerStars> <clone> <Stars List>")
         print('exemple : 8 True "[(12,156), (1,2), 5]"')
