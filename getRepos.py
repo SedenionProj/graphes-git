@@ -3,7 +3,7 @@ import ast
 import sys
 
 # Remplacer par son token personnel
-TOKEN = "ghp_"
+TOKEN = ""
 
 def getReposInfoByStarsPage(stars:int|tuple, page:int)->dict:
     '''
