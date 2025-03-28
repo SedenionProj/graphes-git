@@ -73,22 +73,6 @@ def get_github_repos_by_stars(nbReposPerStars:int, stars_list:list[int]):
         repos = get_repos_info_by_stars_page(stars, nbReposPerStars//100)
         write_github_repos(repos, stars_folder, nbReposPerStars%100)
 
-''' todo
-library, inverser les arretes, un seul main -> recup graphes, info sur graphes, commentaires
-définir les intervalles étoiles intéresent et faire des statistiques,
-->  cree un dossier graphe/fourchette_etoile, dossier info/fourchette_etoile
-
-stats: (jupyter)
-distribution des degrés entrants et degrés sortants et distribution totale (entrants+sortants+total) (nb entré entrant, nb entré)
-[0, 5, 10], 0 degré 1, 5, degré 2, 10, degré 3..., (3 listes), (by networkX, degree_centrality)
-les puits : noeuds sortant degré 0,
-ratio merge/commit
-ratio merge/total_noeuds
-ratio commit/total_noeuds
-distribution : [0, 5, 10]/3
-autres...
-'''
-
 if __name__ == "__main__":
     try:
         lst = ast.literal_eval(sys.argv[2])

@@ -3,6 +3,7 @@ import os
 import json
 import git
 import networkx as nx
+from networkx import DiGraph
 
 OUTPUT_DIR = "dossiers_git"
 
@@ -30,6 +31,8 @@ def process_repository(repo_path, output_file_path):
     repo.close()
 
     graph = nx.DiGraph(g)
+    DiGraph.reverse(graph)
+
     save_graph(output_file_path, graph)
 
 def load_graph_from_json(file_path, out_dir):
