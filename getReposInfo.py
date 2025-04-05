@@ -5,7 +5,7 @@ import sys
 import json
 
 # Remplacer par son token personnel
-TOKEN = "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"
+TOKEN = ""
 OUTPUT_DIR = "dossiers_git"
 
 def get_repos_info_by_stars_page(stars:tuple, page:int)->dict:
