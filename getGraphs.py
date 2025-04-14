@@ -31,7 +31,7 @@ def process_repository(repo_path, output_file_path):
     repo.close()
 
     graph = nx.DiGraph(g) # création du graphe orienté à partir du dictionnaire g
-    DiGraph.reverse(graph)
+    graph = DiGraph.reverse(graph)
 
     save_graph(output_file_path, graph) # sauvegarde du graphe dans le fichier output_file_path
 

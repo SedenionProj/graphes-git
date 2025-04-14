@@ -33,8 +33,6 @@ def get_repos_info_by_stars_page(stars:tuple, page:int)->dict:
 
 
 def write_github_repos(repos, stars_folder, nb_repos:int=100):
-    print( len(repos["items"]), nb_repos)
-    return
     for i, repo in enumerate(repos["items"]): # itération sur les repos de la page courante
 
         d = {
