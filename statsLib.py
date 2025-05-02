@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import copy
+import pickle
 from networkx import DiGraph
 from queue import Queue
 
@@ -33,14 +34,14 @@ class MultipleValueList(__List):
         self.name = name
     
     def div(self, l2):
-        self.name+=" / "+l2.name
+        self.name ="("+self.name+" / "+l2.name+")"
         for i,stars in enumerate(l2):
             for j,e in enumerate(stars):
                 self.l[i][j]/=e
         return self
     
     def mul(self, l2):
-        self.name+=" * "+l2.name
+        self.name ="("+self.name+" * "+l2.name+")"
 
         for i,stars in enumerate(l2):
             for j,e in enumerate(stars):
@@ -48,7 +49,7 @@ class MultipleValueList(__List):
         return self
 
     def add(self, l2):
-        self.name+=" + "+l2.name
+        self.name+="("+self.name+" + "+l2.name+")"
 
         for i,stars in enumerate(l2):
             for j,e in enumerate(stars):
@@ -56,7 +57,7 @@ class MultipleValueList(__List):
         return self
 
     def sub(self, l2):
-        self.name+=" - "+l2.name
+        self.name= "("+self.name+" - "+l2.name+")"
 
         for i,stars in enumerate(l2):
             for j,e in enumerate(stars):
@@ -64,7 +65,7 @@ class MultipleValueList(__List):
         return self
                 
     def mul_const(self, v):
-        self.name=str(round(v, 3))+" * "+self.name
+        self.name= "("+str(round(v, 3))+" * "+self.name+")"
 
         for i in range(len(self.l)):
             for j in range(len(self.l[i])):
@@ -76,7 +77,13 @@ class MultipleValueList(__List):
         return max(max(row) for row in self.l)
     
     def normalize(self):
-        return self.mul_const(1/self.max())
+        v = 1/self.max()
+        self.name= "normalize("+self.name+")"
+
+        for i in range(len(self.l)):
+            for j in range(len(self.l[i])):
+                self.l[i][j] *= v
+        return self
     
     def extend_by(self, n:int, v:int = None):
         for i in range(len(self.l)):
@@ -94,10 +101,12 @@ class MultipleValueList(__List):
         )
     
     def average_by_stars(self):
-        for i in range(len(self.l)):
-            s = sum(self.l[i])
-            for j in range(len(self.l[i])):
-                self.l[i][j]/=s
+        self.name= "moyenne_par_fouchette("+self.name+")"
+        for i in range(len(self.l)): # pour chaque forchette d'étoiles
+            s = sum(self.l[i]) # somme des valeurs de la forchette d'étoiles
+            print(s)
+            for j in range(len(self.l[i])): 
+                self.l[i][j]/=s # moyenne des valeurs de la forchette d'étoiles
         return self
 
 
@@ -164,7 +173,6 @@ class Stats:
     
     def show_chart_by_stars(self, l:MultipleValueList, name:str = "chart"):
         num_bars = max(len(l[i]) for i in range(len(l)))
-    
         group_width = 0.8
         x_positions = np.arange(len(l))
     
@@ -174,11 +182,14 @@ class Stats:
         
         plt.figure(figsize=(12, 6))
 
+        labels_visite = []
+
         for i, group in enumerate(l):
             for j, value in enumerate(group):
                 group_color = colors(j)
                 
-                if i==0:
+                if j not in labels_visite:
+                    labels_visite.append(j)
                     if len(group)==1:
                         plt.bar(x_positions[i] + j * bar_width, value, width=bar_width, color=group_color)
                     elif len(l.labels) == 0:
@@ -190,9 +201,9 @@ class Stats:
     
         plt.xticks(x_positions + (group_width / 2) - (bar_width / 2), self.stars_folders)
     
-        plt.xlabel('stars')
+        plt.xlabel("fourchettes d'etoiles")
         plt.ylabel(l.name)
-        plt.title(name)
+        #plt.title(name)
         plt.legend()
         plt.show()
     
@@ -219,21 +230,23 @@ class Stats:
                     plt.bar(x_positions[i] + j * bar_width, value, width=bar_width, color=group_color)
 
         plt.xticks(x_positions + (group_width / 2) - (bar_width / 2), self.stars_folders)
-        plt.xlabel('stars')
-        plt.ylabel('values')
-        plt.title('charts')
+        plt.xlabel("fourchettes d'etoiles")
+        plt.ylabel("valeurs")
+        #plt.title('charts')
         plt.legend()
         plt.show()
 
     def get_by_stars(self, func):
         '''
         nb_commit
-        nb_merge
+        nb_merges
+        nb_merges_diff_auteurs
         nb_edges
         largeur
         degree_entrant
         degree_sortant
         degree_total
+        connexe
         '''
         l = MultipleValueList(name=func.__name__)
         for folder in self.stars_folders:
@@ -251,7 +264,8 @@ class Stats:
         return [f for f in os.listdir(os.path.join(self.graphs_folder, stars))]
     
     def __load_graph(self, file_path:str):
-        graph = nx.read_edgelist(file_path, create_using=nx.DiGraph())
+        with open(file_path, 'rb') as f:
+            graph = pickle.load(f)
         return graph
 
     def degree_entrant(self, G:DiGraph, normalize:bool = False):
@@ -296,10 +310,17 @@ class Stats:
 
         return ValueList(L)
 
-    def nb_merge(self, G:DiGraph):
+    def nb_merges(self, G:DiGraph):
         c = 0
-        for node in G.nodes:
-            if len(list(G.predecessors(node))) > 1:
+        for _, node in G.nodes(data=True):
+            if node.get("color", "gray") != "lightblue":
+                c+=1
+        return ValueList([c])
+    
+    def nb_merges_diff_auteurs(self, G:DiGraph):
+        c = 0
+        for _, node in G.nodes(data=True):
+            if node.get("color", "gray") == "orange":
                 c+=1
         return ValueList([c])
 
@@ -330,9 +351,6 @@ class Stats:
             for val in visite_dist.values():
                 compteur[val] = compteur.get(val, 0) + 1
 
-            #for k, count in compteur.items():
-            #    print(f"k = {k} apparaît {count} fois")
-
             return max(compteur.values())
     
         return ValueList([max([max_parcours_largeur(s) for s in no_predecessors])])
@@ -345,6 +363,6 @@ class Stats:
         for folder in self.stars_folders:
             for repo in self.__get_repos_for_stars(folder):
                 g = self.__load_graph(os.path.join(self.graphs_folder, folder, repo))
-                print(folder+"/"+repo, "nb commit", self.nb_commit(g).l, "nb merges", self.nb_merge(g).l, "degree", self.degree_entrant(g).l)
+                print(folder+"/"+repo, "nb commit", self.nb_commit(g).l, "nb merges", self.nb_merges(g).l, "degree", self.degree_entrant(g).l)
                 count += 1
         print("total",count)

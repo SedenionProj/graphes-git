@@ -4,42 +4,56 @@ import json
 import git
 import networkx as nx
 from networkx import DiGraph
+import pickle
 
 OUTPUT_DIR = "dossiers_git"
 
-def save_graph(file_path, graph):
-    with open(file_path, 'wb') as f:
-        nx.write_edgelist(graph, f, data=False) # sauvegarde du graphe dans le fichier file_path
-
 def load_json(file_path)->dict:
     with open(file_path) as f:
-        return json.load(f)  # chargement du fichier json
+        return json.load(f) # chargement du fichier json
+
+def save_graph(file_path, graph):
+    with open(file_path, 'wb') as f:
+        pickle.dump(graph, f, pickle.HIGHEST_PROTOCOL) # sauvegarde du graphe dans le fichier file_path
 
 def process_repository(repo_path, output_file_path):
     repo = git.Repo(repo_path) # ouverture du repo
-    
     g = {}
-
+    node_info = {}
     for commit in repo.iter_commits('--all'): # itération sur tous les commits du repo
-        commit_hash = str(commit) # hash du commit
-        parents = [str(parent) for parent in commit.parents] # parents du commit
-
+        commit_hash = str(commit)[:7] # hash du commit
+        parents = [str(parent)[:7] for parent in commit.parents] # parents du commit
         if commit_hash not in g: # si le commit n'est pas déjà dans le graphe
             g[commit_hash] = set() # ajout du commit au graphe
         g[commit_hash].update(parents) # ajout des parents au commit
 
-    repo.close()
 
+        color = 'lightblue' # couleur bleu clair par defaut
+        if len(parents)>1:
+            if(len({str(parent.author) for parent in commit.parents})>1):
+                color = 'orange' # couleur orange pour les merges commits de differents utilisateurs
+            else:
+                color = 'red' # couleur rouge pour les merges sinon
+
+        node_info[commit_hash] = {
+            'color': color  # ajout de la couleur comme metadonnee
+        }
+    repo.close()
     graph = nx.DiGraph(g) # création du graphe orienté à partir du dictionnaire g
+    nx.set_node_attributes(graph, node_info)
+
     graph = DiGraph.reverse(graph)
 
     save_graph(output_file_path, graph) # sauvegarde du graphe dans le fichier output_file_path
 
 def load_graph_from_json(file_path, out_dir):
-    file = load_json(file_path) # chargement du fichier json
-    subprocess.run(["git", "clone", file["clone_url"]], check=True) # clonage du repo
-    process_repository(file["name"], os.path.join(out_dir, str(file["id"]))) # traitement du repo
-    os.system('rmdir /S /Q "{}"'.format(file["name"])) # suppression du repo cloné
+    try:
+        file = load_json(file_path) # chargement du fichier json
+        subprocess.run(["git", "clone", file["clone_url"]], check=True) # clonage du repo
+        process_repository(file["name"], os.path.join(out_dir, str(file["id"]))) # traitement du repo
+        os.system('rmdir /S /Q "{}"'.format(file["name"])) # suppression du repo cloné
+    except Exception as e:
+        print(f"Erreur lors du traitement du fichier {file_path} : {e}")
 
 def get_graphs():
     print("Récupération des graphes...")
