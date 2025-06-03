@@ -236,12 +236,13 @@ class Stats:
         plt.legend()
         plt.show()
 
-    def get_by_stars(self, func):
+    def get_by_stars(self, func, *args):
         '''
         nb_commit
         nb_merges
         nb_merges_diff_auteurs
         nb_edges
+        nb_motifs (param : Graphe, nom)
         largeur
         degree_entrant
         degree_sortant
@@ -253,7 +254,11 @@ class Stats:
             val = ValueList()
             for repo in self.__get_repos_for_stars(folder):
                 g = self.__load_graph(os.path.join(self.graphs_folder, folder, repo))
-                res = func(g)
+                if args:
+                    res = func(g, args[0])
+                    l.name = func.__name__+" \""+str(args[1])+"\""
+                else:
+                    res = func(g)
                 if(len(val)<len(res)):
                     val.l += [0]*(len(res)-len(val))
                 val.add(res)
@@ -357,6 +362,11 @@ class Stats:
 
     def connexe(self, G:DiGraph):
         return ValueList([nx.is_weakly_connected(G)])
+
+    def nb_motifs(self, G:DiGraph, H:DiGraph):
+        matcher = nx.algorithms.isomorphism.DiGraphMatcher(G, H)
+        res = sum(1 for _ in matcher.subgraph_isomorphisms_iter())
+        return ValueList([res])
 
     def show_infos(self):
         count = 0
