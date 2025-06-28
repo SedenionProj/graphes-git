@@ -73,7 +73,7 @@ class MultipleValueList(__List):
         return self
 
     def max(self):
-        #self.name = "norm("+self.name+")"
+        self.name = "max("+self.name+")" # jsp
         return max(max(row) for row in self.l)
     
     def normalize(self):
@@ -101,7 +101,7 @@ class MultipleValueList(__List):
         )
     
     def average_by_stars(self):
-        self.name= "moyenne_par_fouchette("+self.name+")"
+        self.name= "average_by_stars("+self.name+")"
         for i in range(len(self.l)): # pour chaque forchette d'étoiles
             s = sum(self.l[i]) # somme des valeurs de la forchette d'étoiles
             print(s)
